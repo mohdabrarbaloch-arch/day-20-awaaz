@@ -138,9 +138,9 @@ lives in exactly one function:
 
 ```python
 format_timestamp(3661.25)  # "01:01:01,250"
-format_timestamp(25*3600)  # "25:00:00,000"  — hours do not wrap at 24
-format_timestamp(-5)       # "00:00:00,000"  — clamped
-format_timestamp(nan)      # "00:00:00,000"
+format_timestamp(25 * 3600)  # "25:00:00,000"  — hours do not wrap at 24
+format_timestamp(-5)  # "00:00:00,000"  — clamped
+format_timestamp(nan)  # "00:00:00,000"
 ```
 
 `merge_short_cues` fixes the other common problem: Whisper sometimes emits a
