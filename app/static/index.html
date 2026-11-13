@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d10" />
+<title>Awaaz — speech to text, on your own machine</title>
+<meta name="description" content="Upload audio, get a timestamped transcript. Export SRT, VTT, Markdown or plain text. Runs locally — your audio never leaves the machine." />
+<link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+
+<!-- ── Auth gate ─────────────────────────────────────────────────────── -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2"/>
+        </svg>
+      </span>
+      <span class="brand-name">Awaaz</span>
+    </div>
+    <p class="gate-tag">Speech to text that runs on your own machine.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="login" role="tab" aria-selected="true">Sign in</button>
+      <button class="tab" data-tab="register" role="tab" aria-selected="false">Create account</button>
+    </div>
+
+    <form id="login-form" class="form" autocomplete="on">
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" required autocomplete="email" placeholder="you@example.com" />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      <button class="btn btn-primary" type="submit">Sign in</button>
+    </form>
+
+    <form id="register-form" class="form is-hidden" autocomplete="on">
+      <label class="field">
+        <span>Name</span>
+        <input type="text" name="display_name" autocomplete="name" placeholder="Your name" maxlength="120" />
+      </label>
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" required autocomplete="email" placeholder="you@example.com" />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" required autocomplete="new-password" minlength="8" placeholder="At least 8 characters, letters and numbers" />
+      </label>
+      <button class="btn btn-primary" type="submit">Create account</button>
+    </form>
+
+    <p id="gate-error" class="error" role="alert" hidden></p>
+    <p class="gate-note">Your audio is stored on this server only. Nothing is sent to a third party.</p>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────────────────────────────── -->
+<div id="app" class="app is-hidden">
+  <header class="topbar">
+    <div class="brand brand-sm">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2"/>
+        </svg>
+      </span>
+      <span class="brand-name">Awaaz</span>
+    </div>
+    <div class="topbar-right">
+      <span id="engine-pill" class="pill" title="Speech engine status">engine</span>
+      <button id="logout" class="btn btn-ghost btn-sm">Sign out</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Upload column -->
+    <section class="panel">
+      <h1 class="panel-title">New transcription</h1>
+      <p class="panel-sub">Drop an audio or video file. We'll pull the speech out and time every line.</p>
+
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose an audio file">
+        <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+        </svg>
+        <p class="dz-main">Drop a file here, or <span class="dz-link">browse</span></p>
+        <p class="dz-hint">wav · mp3 · m4a · ogg · flac · webm · mp4 — up to 25 MB</p>
+        <input id="file-input" type="file" accept="audio/*,video/mp4,video/webm" hidden />
+      </div>
+
+      <div id="file-preview" class="file-preview is-hidden">
+        <div class="fp-row">
+          <span class="fp-name" id="fp-name">—</span>
+          <button id="fp-clear" class="btn btn-ghost btn-sm" type="button">Remove</button>
+        </div>
+        <audio id="fp-audio" controls preload="metadata"></audio>
+      </div>
+
+      <label class="field field-inline">
+        <span>Language</span>
+        <select id="lang-select">
+          <option value="">Detect automatically</option>
+          <option value="en">English</option>
+          <option value="ur">Urdu</option>
+          <option value="hi">Hindi</option>
+          <option value="ar">Arabic</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="zh">Chinese</option>
+          <option value="ja">Japanese</option>
+          <option value="pt">Portuguese</option>
+          <option value="ru">Russian</option>
+          <option value="tr">Turkish</option>
+          <option value="id">Indonesian</option>
+        </select>
+      </label>
+
+      <button id="upload-btn" class="btn btn-primary btn-block" disabled>Transcribe</button>
+      <p id="upload-error" class="error" role="alert" hidden></p>
+    </section>
+
+    <!-- History column -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">Your transcripts</h2>
+        <button id="refresh" class="btn btn-ghost btn-sm" title="Refresh">Refresh</button>
+      </div>
+      <div id="history" class="history">
+        <p class="empty">Nothing here yet. Upload something.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ── Detail drawer ─────────────────────────────────────────────────── -->
+<div id="drawer" class="drawer" hidden>
+  <div class="drawer-backdrop" data-close></div>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-head">
+      <div>
+        <h2 id="drawer-title" class="drawer-title">Transcript</h2>
+        <p id="drawer-meta" class="drawer-meta"></p>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-close aria-label="Close">Close</button>
+    </div>
+
+    <div class="drawer-actions">
+      <a id="dl-txt" class="btn btn-sm" href="#" download>txt</a>
+      <a id="dl-srt" class="btn btn-sm" href="#" download>srt</a>
+      <a id="dl-vtt" class="btn btn-sm" href="#" download>vtt</a>
+      <a id="dl-md"  class="btn btn-sm" href="#" download>md</a>
+      <button id="copy-btn" class="btn btn-sm">Copy text</button>
+      <button id="delete-btn" class="btn btn-sm btn-danger">Delete</button>
+    </div>
+
+    <div id="drawer-body" class="drawer-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

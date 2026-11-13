@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: awaaz
+      POSTGRES_PASSWORD: awaaz
+      POSTGRES_DB: awaaz
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U awaaz -d awaaz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      # Override this in a real deployment — the app refuses to start in
+      # production with the development default.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in your shell or .env}
+      DATABASE_URL: postgresql+psycopg://awaaz:awaaz@db:5432/awaaz
+      WHISPER_MODEL: ${WHISPER_MODEL:-tiny}
+      WHISPER_DEVICE: cpu
+      WHISPER_COMPUTE_TYPE: int8
+      MAX_UPLOAD_MB: "25"
+      UPLOAD_DIR: /app/uploads
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8000}
+    volumes:
+      # Uploads and the model cache both need to survive a restart.
+      - uploads:/app/uploads
+      - modelcache:/home/awaaz/.cache
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
+  uploads:
+  modelcache:
